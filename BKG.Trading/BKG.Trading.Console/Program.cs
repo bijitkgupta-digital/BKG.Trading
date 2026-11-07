@@ -39,6 +39,7 @@ internal class Program
             ?? throw new InvalidOperationException("Fyers RedirectUri configuration is missing.");
 
         DateTime processingDate = DateTime.Today;
+        //DateTime processingDate = new DateTime(2026, 11, 06);
 
         // 3. Setup Dependency Injection IoC Container (Error Resolved via Microsoft.Extensions.Http)
         var serviceProvider = new ServiceCollection()
@@ -77,18 +78,18 @@ internal class Program
 
             // Print Output Visualization Matrix
             Console.ForegroundColor = ConsoleColor.Green;
-            Console.WriteLine("\n=================================================================================");
+            Console.WriteLine("\n================================================================================================");
             Console.WriteLine("🎯 TOP 5 SYSTEMATIC ACTIVE SWING TRADING BLUEPRINTS FOR TOMORROW'S SESSION:");
-            Console.WriteLine("=================================================================================");
+            Console.WriteLine("==================================================================================================");
             Console.ResetColor();
-            Console.WriteLine($"{"SYMBOL",-15} | {"CLOSE PRICE",-11} | {"RSI TODAY",-9} | {"RSI YEST.",-9} | {"TARGET CHG",-10} | {"LIMIT BUY PRICE",-15}");
+            Console.WriteLine($"{"SYMBOL",-15} | {"CLOSE PRICE",-11} | {"RSI TODAY",-9} | {"RSI YEST.",-9} | {"TARGET CHG",-10} | {"TRIGGER BUY PRICE",-15} | {"LIMIT BUY PRICE",-15}");
             Console.WriteLine(new string('-', 82));
 
             foreach (var sig in optimalSignals)
             {
-                Console.WriteLine($"{sig.SYMBOL,-15} | {sig.Today_Close,11:F2} | {sig.RSI_Today,9:F2} | {sig.RSI_Yesterday,9:F2} | {sig.SellTarget,10:P1} | {sig.LimitBuyPrice,15:F2}");
+                Console.WriteLine($"{sig.SYMBOL,-15} | {sig.Today_Close,11:F2} | {sig.RSI_Today,9:F2} | {sig.RSI_Yesterday,9:F2} | {sig.SellTarget,10:P1} | {sig.TriggerBuyPrice,15:F2} | {sig.LimitBuyPrice,15:F2}");
             }
-            Console.WriteLine("=================================================================================\n");
+            Console.WriteLine("==================================================================================================\n");
 
         }
         catch (Exception ex)

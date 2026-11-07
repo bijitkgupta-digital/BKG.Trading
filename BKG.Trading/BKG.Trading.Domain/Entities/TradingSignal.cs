@@ -49,4 +49,6 @@ public class TradingSignal
     /// Formula: Close - (14-Day Average Gap / 2)
     /// </summary>
     public decimal LimitBuyPrice { get; set; }
+
+    public decimal TriggerBuyPrice { get; set; }
 }
