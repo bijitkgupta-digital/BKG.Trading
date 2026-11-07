@@ -1,0 +1,15 @@
+## Technical Build Cache Artifacts
+[Db]in/
+[Oo]bj/
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+## Fyers System Local Token Storage Cache
+access_token.txt
+
+## OS/User Specific Files
+.DS_Store
+Thumbs.db

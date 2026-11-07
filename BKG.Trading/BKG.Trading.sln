@@ -1,0 +1,49 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.14.37710.0 d17.14
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BKG.Trading.Console", "BKG.Trading.Console\BKG.Trading.Console.csproj", "{1899201D-5610-46A2-8AA1-3124AD7C9264}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BKG.Trading.Domain", "BKG.Trading.Domain\BKG.Trading.Domain.csproj", "{500100E2-2129-469A-BF5D-957D7CC3FA9D}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BKG.Trading.Application", "BKG.Trading.Application\BKG.Trading.Application.csproj", "{E006E3AC-9970-436D-A22A-8A022384A139}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BKG.Trading.Repository", "BKG.Trading.Repository\BKG.Trading.Repository.csproj", "{133E997F-7785-4C84-BA9B-3F7F1A9F0169}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BKG.Trading.APIAdapter", "BKG.Trading.APIAdapter\BKG.Trading.APIAdapter.csproj", "{41396BFD-C862-4114-A660-2A5010CDE234}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{1899201D-5610-46A2-8AA1-3124AD7C9264}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1899201D-5610-46A2-8AA1-3124AD7C9264}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1899201D-5610-46A2-8AA1-3124AD7C9264}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1899201D-5610-46A2-8AA1-3124AD7C9264}.Release|Any CPU.Build.0 = Release|Any CPU
+		{500100E2-2129-469A-BF5D-957D7CC3FA9D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{500100E2-2129-469A-BF5D-957D7CC3FA9D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{500100E2-2129-469A-BF5D-957D7CC3FA9D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{500100E2-2129-469A-BF5D-957D7CC3FA9D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E006E3AC-9970-436D-A22A-8A022384A139}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E006E3AC-9970-436D-A22A-8A022384A139}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E006E3AC-9970-436D-A22A-8A022384A139}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E006E3AC-9970-436D-A22A-8A022384A139}.Release|Any CPU.Build.0 = Release|Any CPU
+		{133E997F-7785-4C84-BA9B-3F7F1A9F0169}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{133E997F-7785-4C84-BA9B-3F7F1A9F0169}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{133E997F-7785-4C84-BA9B-3F7F1A9F0169}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{133E997F-7785-4C84-BA9B-3F7F1A9F0169}.Release|Any CPU.Build.0 = Release|Any CPU
+		{41396BFD-C862-4114-A660-2A5010CDE234}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{41396BFD-C862-4114-A660-2A5010CDE234}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{41396BFD-C862-4114-A660-2A5010CDE234}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{41396BFD-C862-4114-A660-2A5010CDE234}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {97DB4FA6-CF0E-4E8A-A426-7ABA5B3E858C}
+	EndGlobalSection
+EndGlobal
