@@ -22,7 +22,7 @@ public interface ITradingRepository
     /// <summary>
     /// Updates the calculated RSI and triggers database-level set operations for Volume and Gap averages.
     /// </summary>
-    void UpdateIndicators(string symbol, DateTime date, decimal rsi, decimal dma20, decimal closeToLowGap20);
+    void UpdateIndicators(string symbol, DateTime date, decimal rsi, decimal dma20, decimal nextLowPrediction);
 
     /// <summary>
     /// Streams the finalized top 5 momentum reversal signals from the database production view.

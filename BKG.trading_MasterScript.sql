@@ -38,7 +38,7 @@ BEGIN
         [Volume] BIGINT NOT NULL,
         [RSI14] DECIMAL(5, 2) NULL,                     -- Automatically stores RSI_T per row
         [Volume_SMA20] BIGINT NULL,                     -- Unified column tracking 20-period EOD Volume average
-        [CloseToLowGap_SMA14] DECIMAL(10, 2) NULL,      -- 14-period daily average of (Low - Close)
+        [OpenMinusLow] DECIMAL(10, 2) NULL,      -- 14-period daily average of (Low - Close)
         PRIMARY KEY CLUSTERED ([SYMBOL] ASC, [Date] ASC),
         FOREIGN KEY ([SYMBOL]) REFERENCES [dbo].[Instruments]([SYMBOL]) ON DELETE CASCADE
     );
@@ -61,7 +61,7 @@ WITH RowHistory AS (
         o1.RSI14 AS RSI_Today,
         o1.Volume AS Volume_Today,
         o1.Volume_SMA20,
-        o1.CloseToLowGap_SMA14,
+        o1.OpenMinusLow,
         -- Window Function to cleanly pull the immediate prior row for RSI_T-1
         LAG(o1.RSI14, 1) OVER (PARTITION BY o1.SYMBOL ORDER BY o1.Date ASC) AS RSI_Yesterday,
         -- Row numbering forces selection of only the absolute newest data sequence per asset
@@ -77,8 +77,7 @@ SELECT TOP 5
     rh.Volume_Today,
     rh.Volume_SMA20,
     i.SellTarget,
-    ROUND((rh.Today_Close - (ABS(rh.CloseToLowGap_SMA14) / 1.75)), 2) AS TriggerBuyPrice,
-    ROUND((rh.Today_Close - (ABS(rh.CloseToLowGap_SMA14) / 2)), 2) AS LimitBuyPrice
+    rh.OpenMinusLow
 FROM RowHistory rh
 INNER JOIN [dbo].[Instruments] i ON rh.SYMBOL = i.SYMBOL -- Linked master table to fetch static rules
 WHERE rh.rn = 1                                      -- Isolates the latest trading day (EOD Sync)

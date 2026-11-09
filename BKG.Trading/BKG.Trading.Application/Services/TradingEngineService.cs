@@ -84,10 +84,10 @@ public class TradingEngineService(ITradingRepository repository, IMarketDataServ
             // STANDARD SINGLE-DAY OPERATION: Compute indicators strictly for the active target date
             decimal computedRsi = CalculateWildersRsi(priceContext, 14);
             decimal computedDMA20 = CalculateDMA(priceContext, 20);
-            decimal computedCloseToLowGap = CalculateCloseToLowGap(priceContext, 14); // Strategy specification parameters: 14 periods
+            decimal nextLowPrediction = CalculateNextLowPrediction(priceContext); // Strategy specification parameters: 14 periods
 
             // Persist the single day's calculated data row back to the repository ledger
-            _repository.UpdateIndicators(inst.SYMBOL, targetDate, computedRsi, computedDMA20, computedCloseToLowGap);
+            _repository.UpdateIndicators(inst.SYMBOL, targetDate, computedRsi, computedDMA20, nextLowPrediction);
         }
     }
 
@@ -162,24 +162,36 @@ public class TradingEngineService(ITradingRepository repository, IMarketDataServ
         return (decimal)volumeSum / period;
     }
 
-    // =========================================================================
-    // CALCULATE CLOSE-TO-LOW GAP AVERAGE (Volatility Moving Average)
-    // =========================================================================
-    private static decimal CalculateCloseToLowGap(List<OHLCVRecord> records, int period)
+    /// <summary>
+    /// Calculates the static next-day Low target (Limit Buy Price) by explicitly finding 
+    /// the most recent date record, entirely independent of list order.
+    /// </summary>
+    public decimal CalculateNextLowPrediction(List<OHLCVRecord> records)
     {
-        var orderedRecords = records.OrderBy(r => r.Date).ToList();
-
-        if (orderedRecords.Count < period)
-            return 0.0m;
-
-        decimal totalGap = 0.0m;
-        int startIndex = orderedRecords.Count - period;
-
-        for (int i = startIndex; i < orderedRecords.Count; i++)
+        if (records == null || !records.Any())
         {
-            totalGap += Math.Abs(orderedRecords[i].Low - orderedRecords[i].Close);
+            throw new ArgumentException("Historical records cannot be empty.");
         }
 
-        return Math.Round(totalGap / period, 2);
+        // Explicitly locate the single record with the maximum (most recent) date
+        var latestDay = records.OrderByDescending(r => r.Date).First();
+
+        decimal H = latestDay.High;
+        decimal L = latestDay.Low;
+        decimal C = latestDay.Close;
+
+        // 1. Calculate the core Pivot Point (P)
+        decimal pivot = (H + L + C) / 3m;
+
+        // 2. Calculate Support 1 (S1) 
+        decimal predictedS1Low = (2m * pivot) - H;
+
+        // 3. Indian Exchange Tick Size Alignment (Round to nearest 0.05 paise)
+        return RoundToTickSize((latestDay.Open - latestDay.Low)/3, 0.05m);
+    }
+
+    private decimal RoundToTickSize(decimal value, decimal tickSize)
+    {
+        return Math.Round(value / tickSize) * tickSize;
     }
 }

@@ -48,7 +48,5 @@ public class TradingSignal
     /// The exact target buy entry limit price calculated based on your 14-day volatility footprint.
     /// Formula: Close - (14-Day Average Gap / 2)
     /// </summary>
-    public decimal LimitBuyPrice { get; set; }
-
-    public decimal TriggerBuyPrice { get; set; }
+    public decimal OpenMinusLow { get; set; }
 }

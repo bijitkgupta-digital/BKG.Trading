@@ -82,11 +82,11 @@ public class DapperTradingRepository(string connectionString) : ITradingReposito
     // =========================================================================
     // OPERATION 4: Combined Transactional Indicators & RSI Commits
     // =========================================================================
-    public void UpdateIndicators(string symbol, DateTime date, decimal rsi, decimal dma20, decimal closeToLowGap20)
+    public void UpdateIndicators(string symbol, DateTime date, decimal rsi, decimal dma20, decimal nextLowPrediction)
     {
         const string updateRsiSql = """
             UPDATE dbo.OHLCV_Data 
-            SET RSI14 = @rsi, Volume_SMA20 = @dma20, CloseToLowGap_SMA14 = @closeToLowGap20
+            SET RSI14 = @rsi, Volume_SMA20 = @dma20, OpenMinusLow = @nextLowPrediction
             WHERE SYMBOL = @symbol AND Date = @date;
             """;
 
@@ -95,7 +95,7 @@ public class DapperTradingRepository(string connectionString) : ITradingReposito
         using var transaction = db.BeginTransaction();
         try
         {
-            db.Execute(updateRsiSql, new { rsi, symbol, date, dma20, closeToLowGap20 }, transaction);
+            db.Execute(updateRsiSql, new { rsi, symbol, date, dma20, nextLowPrediction }, transaction);
             transaction.Commit();
         }
         catch
