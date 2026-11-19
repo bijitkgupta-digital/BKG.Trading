@@ -1,19 +1,14 @@
-﻿using System;
-using System.IO;
-using System.Net.Http;
-using System.Linq;
-using Microsoft.Extensions.DependencyInjection;
+﻿using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Configuration;
-using BKG.Trading.Domain.Interfaces;
-using BKG.Trading.Application.Services;
 using BKG.Trading.Repository.SQL;
-using BKG.Trading.APIAdapter.Fyers;
+using BKG.Trading.Domain.Contract;
+using BKG.Trading.Adapters;
 
 namespace BKG.Trading.ConsoleApp;
 
 internal class Program
 {
-    static void Main(string[] args)
+    static async Task Main(string[] args)
     {
         Console.WriteLine("=================================================================");
         Console.WriteLine("     BKG.TRADING CORE QUANT SYSTEM ENGINE INITIALIZATION         ");
@@ -38,59 +33,36 @@ internal class Program
         string fyersRedirectUri = configuration["FyersConfig:RedirectUri"]
             ?? throw new InvalidOperationException("Fyers RedirectUri configuration is missing.");
 
-        DateTime processingDate = DateTime.Today;
-        //DateTime processingDate = new DateTime(2026, 11, 08);
+        //var fyersClient = await FyersDataClient.CreateAsync(new HttpClient(), fyersClientId, fyersAccessToken, fyersRedirectUri);
+        var yahooClient = new YahooClient(new HttpClient());
 
-        // 3. Setup Dependency Injection IoC Container (Error Resolved via Microsoft.Extensions.Http)
+        // 3. Setup Dependency Injection IoC Container
         var serviceProvider = new ServiceCollection()
             .AddHttpClient()
             .AddTransient<ITradingRepository>(sp => new DapperTradingRepository(dbConnectionString))
-            .AddTransient<IMarketDataService>(sp => new FyersDataClient(fyersClientId, fyersAccessToken, fyersRedirectUri)) // Streamlined instantiation
-            .AddTransient<TradingEngineService>()
+            //.AddSingleton<IMarketDataProvider>(fyersClient)
+            .AddSingleton<ILTPProvider>(yahooClient)
             .BuildServiceProvider();
 
         try
         {
-            // 4. Resolve the Engine Orchestrator
-            var engine = serviceProvider.GetRequiredService<TradingEngineService>();
+            var marketDataProvider =
+                serviceProvider.GetRequiredService<ILTPProvider>();
 
-            // STEP 1: Execute Independent Candle Sync
-            Console.WriteLine($"\n[STEP 1] Initializing remote OHLCV sync for {processingDate:yyyy-MM-dd}...");
-            int syncedCount = engine.SyncCandleData(processingDate);
-            Console.WriteLine($"✅ Sync complete. Successfully mirrored {syncedCount} asset sessions.");
-
-            // STEP 2: Execute Indicator Computations
-            Console.WriteLine("\n[STEP 2] Launching database analytical indicator computation processing...");
-            engine.CalculateIndicators(processingDate);
-            Console.WriteLine("✅ Math calculations and structural window sets updated.");
-
-            // STEP 3: Stream Strategy Matrix Output
-            Console.WriteLine("\n[STEP 3] Fetching top actionable momentum signals...");
-            var optimalSignals = engine.GetTop5DailySignals().ToList();
-
-            if (!optimalSignals.Any())
+            var symbols = new[]
             {
-                Console.ForegroundColor = ConsoleColor.Yellow;
-                Console.WriteLine("⏸️ No active ETFs matched entry breakout and volume confirmation targets today.");
-                Console.ResetColor();
-                return;
+                "MAFANG", "MON100", "MONQ50"
+            };
+
+            Console.WriteLine();
+            Console.WriteLine("============== LIVE MARKET PRICES ==============");
+
+            foreach (var symbol in symbols)
+            {
+                Console.WriteLine($"{symbol,-10} : {await marketDataProvider.FetchLTPAsync(symbol):N2}");
             }
 
-            // Print Output Visualization Matrix
-            Console.ForegroundColor = ConsoleColor.Green;
-            Console.WriteLine("\n================================================================================================");
-            Console.WriteLine("🎯 TOP 5 SYSTEMATIC ACTIVE SWING TRADING BLUEPRINTS FOR TOMORROW'S SESSION:");
-            Console.WriteLine("==================================================================================================");
-            Console.ResetColor();
-            Console.WriteLine($"{"SYMBOL",-15} | {"CLOSE PRICE",-11} | {"RSI TODAY",-9} | {"RSI YEST.",-9} | {"TARGET CHG",-10} | {"OpenMinusLow",-15}");
-            Console.WriteLine(new string('-', 82));
-
-            foreach (var sig in optimalSignals)
-            {
-                Console.WriteLine($"{sig.SYMBOL,-15} | {sig.Today_Close,11:F2} | {sig.RSI_Today,9:F2} | {sig.RSI_Yesterday,9:F2} | {sig.SellTarget,10:P1} | {sig.OpenMinusLow,15:F2}");
-            }
-            Console.WriteLine("==================================================================================================\n");
-
+            Console.WriteLine("================================================");
         }
         catch (Exception ex)
         {

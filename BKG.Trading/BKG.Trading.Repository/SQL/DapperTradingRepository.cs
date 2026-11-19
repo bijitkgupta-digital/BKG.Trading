@@ -1,9 +1,8 @@
-﻿using BKG.Trading.Domain.Entities;
-using BKG.Trading.Domain.Interfaces;
+﻿using BKG.Trading.Domain.Contract;
+using BKG.Trading.Domain.Entities;
 using Dapper;
 using Microsoft.Data.SqlClient;
 using System.Data;
-using System.Data.SqlClient;
 
 
 namespace BKG.Trading.Repository.SQL;
@@ -103,15 +102,5 @@ public class DapperTradingRepository(string connectionString) : ITradingReposito
             transaction.Rollback();
             throw;
         }
-    }
-
-    // =========================================================================
-    // OPERATION 5: Read Strategy Blueprint Output Matrix
-    // =========================================================================
-    public IEnumerable<TradingSignal> GetTop5DailySignals()
-    {
-        const string sql = "SELECT * FROM dbo.v_Top5_Momentum_Pivots;";
-        using var db = CreateConnection();
-        return db.Query<TradingSignal>(sql);
     }
 }

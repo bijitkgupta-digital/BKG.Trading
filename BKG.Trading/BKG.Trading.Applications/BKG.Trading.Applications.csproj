@@ -10,4 +10,9 @@
     <ProjectReference Include="..\BKG.Trading.Domain\BKG.Trading.Domain.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="ETFAverage\" />
+    <Folder Include="StockSwing\" />
+  </ItemGroup>
+
 </Project>

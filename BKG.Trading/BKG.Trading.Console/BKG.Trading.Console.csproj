@@ -14,8 +14,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\BKG.Trading.APIAdapter\BKG.Trading.APIAdapter.csproj" />
-    <ProjectReference Include="..\BKG.Trading.Application\BKG.Trading.Application.csproj" />
+    <ProjectReference Include="..\BKG.Trading.Adapters\BKG.Trading.Adapters.csproj" />
+    <ProjectReference Include="..\BKG.Trading.Applications\BKG.Trading.Applications.csproj" />
     <ProjectReference Include="..\BKG.Trading.Domain\BKG.Trading.Domain.csproj" />
     <ProjectReference Include="..\BKG.Trading.Repository\BKG.Trading.Repository.csproj" />
   </ItemGroup>

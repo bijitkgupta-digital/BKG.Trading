@@ -20,7 +20,7 @@ IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[In
 BEGIN
     CREATE TABLE [dbo].[Instruments] (
         [SYMBOL] VARCHAR(30) PRIMARY KEY,
-        [SellTarget] DECIMAL(5, 4) NOT NULL            -- 0.0470 for Domestic/Commodity, 0.0640 for US Tech
+        [SellTarget] DECIMAL(5, 4) NOT NULL            -- 0.0157 for Domestic/Commodity, 0.0314 for US Tech
     );
 END;
 GO
@@ -82,7 +82,7 @@ FROM RowHistory rh
 INNER JOIN [dbo].[Instruments] i ON rh.SYMBOL = i.SYMBOL -- Linked master table to fetch static rules
 WHERE rh.rn = 1                                      -- Isolates the latest trading day (EOD Sync)
   AND rh.RSI_Today > rh.RSI_Yesterday                   -- Core Condition 1: Momentum Turning Up (RSI_T > RSI_T-1)
-  AND rh.Volume_Today > rh.Volume_SMA20                 -- Core Condition 2: Institutional Influx
+  --AND rh.Volume_Today > rh.Volume_SMA20                 -- Core Condition 2: Institutional Influx
 ORDER BY 
     rh.RSI_Today ASC,                                -- Priority 1: Focus on the deepest oversold value assets
     (CAST(rh.Volume_Today AS FLOAT) / NULLIF(rh.Volume_SMA20, 0)) DESC; -- Priority 2: Highest relative volume accumulation
@@ -93,51 +93,51 @@ GO
 -- =========================================================================
 MERGE INTO [dbo].[Instruments] AS Target
 USING (VALUES
-    -- US Innovation, Technology & Global Growth Segment (Target: 6.4%)
-    ('NSE:MAFANG', 0.0640),
-    ('NSE:MON100', 0.0640),
-    ('NSE:MONQ50', 0.0640),
-    ('NSE:MAHKTECH', 0.0640),
+    -- US Innovation, Technology & Global Growth Segment (Target: 3.14%)
+    ('NSE:MAFANG', 0.0314),
+    ('NSE:MON100', 0.0314),
+    ('NSE:MONQ50', 0.0314),
+    ('NSE:MAHKTECH', 0.0314),
 
-    -- Broad Core Market & Domestic Index Segment (Target: 4.7%)
-    ('NSE:NIFTYBEES', 0.0470),
-    ('NSE:JUNIORBEES', 0.0470),
-    ('NSE:MID150BEES', 0.0470),
-    ('NSE:MOSMALL250', 0.0470),
-    ('NSE:EQUAL50ADD', 0.0470),
+    -- Broad Core Market & Domestic Index Segment (Target: 1.57%)
+    ('NSE:NIFTYBEES', 0.0157),
+    ('NSE:JUNIORBEES', 0.0157),
+    ('NSE:MID150BEES', 0.0157),
+    ('NSE:MOSMALL250', 0.0157),
+    ('NSE:EQUAL50ADD', 0.0157),
 
-    -- Domestic Sectoral Verticals (Target: 4.7%)
-    ('NSE:BANKBEES', 0.0470),
-    ('NSE:PVTBANIETF', 0.0470),
-    ('NSE:PSUBNKBEES', 0.0470),
-    ('NSE:ITBEES', 0.0470),
-    ('NSE:AUTOBEES', 0.0470),
-    ('NSE:PHARMABEES', 0.0470),
-    ('NSE:FMCGIETF', 0.0470),
-    ('NSE:HEALTHIETF', 0.0470),
-    ('NSE:METALIETF', 0.0470),
-    ('NSE:ENERGY', 0.0470),
-    ('NSE:OILIETF', 0.0470),
-    ('NSE:MOREALTY', 0.0470),
-    ('NSE:CONSUMBEES', 0.0470),
+    -- Domestic Sectoral Verticals (Target: 1.57%)
+    ('NSE:BANKBEES', 0.0157),
+    ('NSE:PVTBANIETF', 0.0157),
+    ('NSE:PSUBNKBEES', 0.0157),
+    ('NSE:ITBEES', 0.0157),
+    ('NSE:AUTOBEES', 0.0157),
+    ('NSE:PHARMABEES', 0.0157),
+    ('NSE:FMCGIETF', 0.0157),
+    ('NSE:HEALTHIETF', 0.0157),
+    ('NSE:METALIETF', 0.0157),
+    ('NSE:ENERGY', 0.0157),
+    ('NSE:OILIETF', 0.0157),
+    ('NSE:MOREALTY', 0.0157),
+    ('NSE:CONSUMBEES', 0.0157),
 
-    -- Government Policies & Thematic Engines (Target: 4.7%)
-    ('NSE:CPSEETF', 0.0470),
-    ('NSE:ABSLPSE', 0.0470),
-    ('NSE:MODEFENCE', 0.0470),
-    ('NSE:MAKEINDIA', 0.0470),
-    ('NSE:GROWWEV', 0.0470),
+    -- Government Policies & Thematic Engines (Target: 1.57%)
+    ('NSE:CPSEETF', 0.0157),
+    ('NSE:ABSLPSE', 0.0157),
+    ('NSE:MODEFENCE', 0.0157),
+    ('NSE:MAKEINDIA', 0.0157),
+    ('NSE:GROWWEV', 0.0157),
 
-    -- Smart-Beta & Quantitative Factor Anchors (Target: 4.7%)
-    ('NSE:ALPHA', 0.0470),
-    ('NSE:ALPHAETF', 0.0470),
-    ('NSE:LOWVOLIETF', 0.0470),
-    ('NSE:MOM30IETF', 0.0470),
-    ('NSE:MOMENTUM50', 0.0470),
-    ('NSE:NV20IETF', 0.0470),
+    -- Smart-Beta & Quantitative Factor Anchors (Target: 1.57%)
+    ('NSE:ALPHA', 0.0157),
+    ('NSE:ALPHAETF', 0.0157),
+    ('NSE:LOWVOLIETF', 0.0157),
+    ('NSE:MOM30IETF', 0.0157),
+    ('NSE:MOMENTUM50', 0.0157),
+    ('NSE:NV20IETF', 0.0157),
 
-    -- Commodity Tracker (Target: 4.7%)
-    ('NSE:SILVERBEES', 0.0470)
+    -- Commodity Tracker (Target: 1.57%)
+    ('NSE:SILVERBEES', 0.0157)
 ) AS Source (SYMBOL, SellTarget)
 ON Target.SYMBOL = Source.SYMBOL
 WHEN NOT MATCHED THEN

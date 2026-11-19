@@ -7,10 +7,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Folder Include="Kite\" />
-  </ItemGroup>
-
-  <ItemGroup>
     <PackageReference Include="fyers-api-v3" Version="1.6.0" />
   </ItemGroup>
 
