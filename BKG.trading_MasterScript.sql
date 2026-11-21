@@ -15,138 +15,36 @@ GO
 USE [BKG.Trading];
 GO
 
--- 2. CREATE INSTRUMENTS TABLE
-IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[Instruments]') AND type in (N'U'))
+-- 2. CREATE ETF TABLE
+IF OBJECT_ID(N'[dbo].[ETF]', N'U') IS NOT NULL
 BEGIN
-    CREATE TABLE [dbo].[Instruments] (
-        [SYMBOL] VARCHAR(30) PRIMARY KEY,
-        [SellTarget] DECIMAL(5, 4) NOT NULL            -- 0.0157 for Domestic/Commodity, 0.0314 for US Tech
-    );
+    DROP TABLE [dbo].[ETF];
 END;
 GO
 
--- 3. CREATE TIME-SERIES OHLCV & INDICATORS TABLE
-IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[OHLCV_Data]') AND type in (N'U'))
-BEGIN
-    CREATE TABLE [dbo].[OHLCV_Data] (
-        [SYMBOL] VARCHAR(30),
-        [Date] DATE,
-        [Open] DECIMAL(10, 2) NOT NULL,
-        [High] DECIMAL(10, 2) NOT NULL,
-        [Low] DECIMAL(10, 2) NOT NULL,
-        [Close] DECIMAL(10, 2) NOT NULL,               -- Reserved keyword protected by bracket downstream
-        [Volume] BIGINT NOT NULL,
-        [RSI14] DECIMAL(5, 2) NULL,                     -- Automatically stores RSI_T per row
-        [Volume_SMA20] BIGINT NULL,                     -- Unified column tracking 20-period EOD Volume average
-        [OpenMinusLow] DECIMAL(10, 2) NULL,      -- 14-period daily average of (Low - Close)
-        PRIMARY KEY CLUSTERED ([SYMBOL] ASC, [Date] ASC),
-        FOREIGN KEY ([SYMBOL]) REFERENCES [dbo].[Instruments]([SYMBOL]) ON DELETE CASCADE
-    );
-END;
-GO
-
--- 4. VIEW CREATION: PUBLISH TOP 5 NEXT-DAY INSTRUMENTS (With SellTarget Included)
-IF EXISTS (SELECT * FROM sys.views WHERE object_id = OBJECT_ID(N'[dbo].[v_Top5_Momentum_Pivots]'))
-BEGIN
-    DROP VIEW [dbo].[v_Top5_Momentum_Pivots];
-END;
-GO
-
-CREATE VIEW [dbo].[v_Top5_Momentum_Pivots] AS
-WITH RowHistory AS (
-    SELECT 
-        o1.SYMBOL,
-        o1.Date,
-        o1.[Close] AS Today_Close,                     -- Protected system reserved keyword
-        o1.RSI14 AS RSI_Today,
-        o1.Volume AS Volume_Today,
-        o1.Volume_SMA20,
-        o1.OpenMinusLow,
-        -- Window Function to cleanly pull the immediate prior row for RSI_T-1
-        LAG(o1.RSI14, 1) OVER (PARTITION BY o1.SYMBOL ORDER BY o1.Date ASC) AS RSI_Yesterday,
-        -- Row numbering forces selection of only the absolute newest data sequence per asset
-        ROW_NUMBER() OVER (PARTITION BY o1.SYMBOL ORDER BY o1.Date DESC) AS rn
-    FROM [dbo].[OHLCV_Data] o1
-)
-SELECT TOP 5
-    rh.SYMBOL,
-    rh.Date AS Signal_Date,
-    rh.Today_Close,
-    rh.RSI_Today,
-    rh.RSI_Yesterday,
-    rh.Volume_Today,
-    rh.Volume_SMA20,
-    i.SellTarget,
-    rh.OpenMinusLow
-FROM RowHistory rh
-INNER JOIN [dbo].[Instruments] i ON rh.SYMBOL = i.SYMBOL -- Linked master table to fetch static rules
-WHERE rh.rn = 1                                      -- Isolates the latest trading day (EOD Sync)
-  AND rh.RSI_Today > rh.RSI_Yesterday                   -- Core Condition 1: Momentum Turning Up (RSI_T > RSI_T-1)
-  --AND rh.Volume_Today > rh.Volume_SMA20                 -- Core Condition 2: Institutional Influx
-ORDER BY 
-    rh.RSI_Today ASC,                                -- Priority 1: Focus on the deepest oversold value assets
-    (CAST(rh.Volume_Today AS FLOAT) / NULLIF(rh.Volume_SMA20, 0)) DESC; -- Priority 2: Highest relative volume accumulation
+CREATE TABLE [dbo].[ETF]
+(
+    [Symbol] NVARCHAR(50) NOT NULL PRIMARY KEY,
+    [RecentPeakPrice] DECIMAL(18,2) NULL
+);
 GO
 
 -- =========================================================================
 -- 5. SEED DATA GENERATION: EXHAUSTIVE 34 ETFs MERGE BLOCK
 -- =========================================================================
-MERGE INTO [dbo].[Instruments] AS Target
+MERGE INTO [dbo].[ETF] AS Target
 USING (VALUES
     -- US Innovation, Technology & Global Growth Segment (Target: 3.14%)
-    ('NSE:MAFANG', 0.0314),
-    ('NSE:MON100', 0.0314),
-    ('NSE:MONQ50', 0.0314),
-    ('NSE:MAHKTECH', 0.0314),
-
-    -- Broad Core Market & Domestic Index Segment (Target: 1.57%)
-    ('NSE:NIFTYBEES', 0.0157),
-    ('NSE:JUNIORBEES', 0.0157),
-    ('NSE:MID150BEES', 0.0157),
-    ('NSE:MOSMALL250', 0.0157),
-    ('NSE:EQUAL50ADD', 0.0157),
-
-    -- Domestic Sectoral Verticals (Target: 1.57%)
-    ('NSE:BANKBEES', 0.0157),
-    ('NSE:PVTBANIETF', 0.0157),
-    ('NSE:PSUBNKBEES', 0.0157),
-    ('NSE:ITBEES', 0.0157),
-    ('NSE:AUTOBEES', 0.0157),
-    ('NSE:PHARMABEES', 0.0157),
-    ('NSE:FMCGIETF', 0.0157),
-    ('NSE:HEALTHIETF', 0.0157),
-    ('NSE:METALIETF', 0.0157),
-    ('NSE:ENERGY', 0.0157),
-    ('NSE:OILIETF', 0.0157),
-    ('NSE:MOREALTY', 0.0157),
-    ('NSE:CONSUMBEES', 0.0157),
-
-    -- Government Policies & Thematic Engines (Target: 1.57%)
-    ('NSE:CPSEETF', 0.0157),
-    ('NSE:ABSLPSE', 0.0157),
-    ('NSE:MODEFENCE', 0.0157),
-    ('NSE:MAKEINDIA', 0.0157),
-    ('NSE:GROWWEV', 0.0157),
-
-    -- Smart-Beta & Quantitative Factor Anchors (Target: 1.57%)
-    ('NSE:ALPHA', 0.0157),
-    ('NSE:ALPHAETF', 0.0157),
-    ('NSE:LOWVOLIETF', 0.0157),
-    ('NSE:MOM30IETF', 0.0157),
-    ('NSE:MOMENTUM50', 0.0157),
-    ('NSE:NV20IETF', 0.0157),
-
-    -- Commodity Tracker (Target: 1.57%)
-    ('NSE:SILVERBEES', 0.0157)
-) AS Source (SYMBOL, SellTarget)
-ON Target.SYMBOL = Source.SYMBOL
+    ('MAFANG', NULL)
+) AS Source (Symbol, RecentPeakPrice)
+ON Target.Symbol = Source.Symbol
 WHEN NOT MATCHED THEN
-    INSERT (SYMBOL, SellTarget) 
-    VALUES (Source.SYMBOL, Source.SellTarget);
+    INSERT (Symbol, RecentPeakPrice) 
+    VALUES (Source.Symbol, Source.RecentPeakPrice);
 GO
 
 -- Verify total assets seeded successfully (Should return 34 rows)
-SELECT * FROM [dbo].[Instruments];
+SELECT * FROM [dbo].[ETF];
 GO
 
 

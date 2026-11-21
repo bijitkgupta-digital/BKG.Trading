@@ -205,6 +205,6 @@ public sealed class FyersClient : ILTPProvider
 
     public Task<decimal> FetchLTPAsync(string symbol)
     {
-        throw new NotImplementedException();
+        throw new NotImplementedException("FyersClient.FetchLTPAsync");
     }
 }

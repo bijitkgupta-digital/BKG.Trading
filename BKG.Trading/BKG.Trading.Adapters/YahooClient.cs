@@ -1,10 +1,5 @@
 ﻿using BKG.Trading.Domain.Contract;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.Text.Json;
-using System.Threading.Tasks;
 
 namespace BKG.Trading.Adapters
 {
@@ -36,6 +31,19 @@ namespace BKG.Trading.Adapters
                       .GetProperty("meta")
                       .GetProperty("regularMarketPrice")
                       .GetDecimal();
+        }
+        public async Task<IDictionary<string, decimal>> FetchLTPAsync(IEnumerable<string> symbols)
+        {
+            ArgumentNullException.ThrowIfNull(symbols);
+
+            var result = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var symbol in symbols.Distinct())
+            {
+                result[symbol] = await FetchLTPAsync(symbol);
+            }
+
+            return result;
         }
     }
 }
