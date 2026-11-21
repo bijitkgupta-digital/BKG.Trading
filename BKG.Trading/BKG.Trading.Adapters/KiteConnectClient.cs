@@ -91,15 +91,15 @@ public sealed class KiteConnectClient : IBroker
 
         await Task.Run(() =>
             _kite.PlaceOrder(
-                Exchange: Constants.EXCHANGE_NSE,
+                Exchange: Constants.Exchange.NSE,
                 TradingSymbol: symbol,
-                TransactionType: Constants.TRANSACTION_TYPE_BUY,
+                TransactionType: Constants.Transaction.Buy,
                 Quantity: unitsToBuy,
                 TriggerPrice: triggerPrice,
                 Price: Math.Ceiling((triggerPrice * 1.0025m) / 0.10m) * 0.10m,
-                Product: Constants.PRODUCT_CNC,
-                OrderType: Constants.ORDER_TYPE_LIMIT,
-                Variety: Constants.VARIETY_REGULAR
+                Product: Constants.Product.CNC,
+                OrderType: Constants.OrderType.Limit,
+                Variety: Constants.Variety.Regular
                 //Variety: Constants.VARIETY_AMO
             ));
 
@@ -116,32 +116,19 @@ public sealed class KiteConnectClient : IBroker
         if (unitsToBuy <= 0)
             return;
 
-        using var client = new HttpClient();
-
-        client.DefaultRequestHeaders.Add("X-Kite-Version", "3");
-        var _token = await GetAccessTokenAsync();
-        client.DefaultRequestHeaders.Add("Authorization", $"token {_apiKey}:{_token}");
-
-        var content = new FormUrlEncodedContent(
-        [
-            new KeyValuePair<string, string>("exchange", "NSE"),
-            new KeyValuePair<string, string>("tradingsymbol", symbol),
-            new KeyValuePair<string, string>("transaction_type", "BUY"),
-            new KeyValuePair<string, string>("quantity", unitsToBuy.ToString()),
-            new KeyValuePair<string, string>("product", "CNC"),
-            new KeyValuePair<string, string>("order_type", "MARKET"),
-            new KeyValuePair<string, string>("validity", "DAY"),
-            new KeyValuePair<string, string>("market_protection", "-1")
-        ]);
-
-        using HttpResponseMessage response = await client.PostAsync("https://api.kite.trade/orders/regular", content);
-
-        string responseBody = await response.Content.ReadAsStringAsync();
-
-        if (!response.IsSuccessStatusCode)
-        {
-            throw new InvalidOperationException($"Kite market order failed: {responseBody}");
-        }
+        await Task.Run(() =>
+            _kite.PlaceOrder(
+                Exchange: Constants.Exchange.NSE,
+                TradingSymbol: symbol,
+                TransactionType: Constants.Transaction.Buy,
+                Quantity: unitsToBuy,
+                Product: Constants.Product.CNC,
+                OrderType: Constants.OrderType.Market,
+                MarketProtection: -1,
+                Validity: Constants.Validity.Day,
+                Variety: Constants.Variety.Regular
+                //Variety: Constants.VARIETY_AMO
+            ));
     }
 
     public async Task<IEnumerable<string>> GetExistingHoldings()

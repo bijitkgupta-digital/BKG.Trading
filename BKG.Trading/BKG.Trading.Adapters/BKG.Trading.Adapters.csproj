@@ -1,14 +1,14 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="fyers-api-v3" Version="1.6.0" />
-    <PackageReference Include="Tech.Zerodha.KiteConnect" Version="4.3.0" />
+    <PackageReference Include="fyers-api-v3" Version="1.7.0" />
+    <PackageReference Include="Tech.Zerodha.KiteConnect" Version="5.2.2" />
   </ItemGroup>
 
   <ItemGroup>
