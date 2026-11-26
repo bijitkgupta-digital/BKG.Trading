@@ -17,7 +17,15 @@ public sealed class KiteConnectClient : IBroker
         _apiSecret = apiSecret;
 
         _kite = new Kite(apiKey, Debug: true);
-        _kite.SetSessionExpiryHook(OnTokenExpired);
+        try
+        {
+            _kite.SetSessionExpiryHook(OnTokenExpired);
+        }
+        catch (InvalidOperationException)
+        {
+            // Handle the Token expiration exception in the OnTokenExpired method and reinitiate the login process to get a new token.
+            CreateAsync(_apiKey, _apiSecret).Wait();
+        }
     }
 
     public static async Task<KiteConnectClient> CreateAsync(string apiKey, string apiSecret)
@@ -100,7 +108,7 @@ public sealed class KiteConnectClient : IBroker
                 Product: Constants.Product.CNC,
                 OrderType: Constants.OrderType.Limit,
                 Variety: Constants.Variety.Regular
-                //Variety: Constants.VARIETY_AMO
+                //Variety: Constants.Variety.AMO
             ));
 
 
@@ -108,6 +116,15 @@ public sealed class KiteConnectClient : IBroker
 
     private void OnTokenExpired()
     {
+        // Here I want to delete the token file so that next time user can login again and get new token
+        if (File.Exists(TokenFileName))
+        {
+            File.Delete(TokenFileName);
+        }
+        Console.WriteLine("Kite session expired. Login again.");
+        // Then rather than below Exception throwing, I want to reinitiate the Login process to get new token and set it again.
+        // But since this is a callback method, I cannot make it async.
+        // So I will just throw an exception here and handle it in the calling method to reinitiate the login process.
         throw new InvalidOperationException("Kite session expired. Login again.");
     }
 
@@ -127,7 +144,6 @@ public sealed class KiteConnectClient : IBroker
                 MarketProtection: -1,
                 Validity: Constants.Validity.Day,
                 Variety: Constants.Variety.Regular
-                //Variety: Constants.VARIETY_AMO
             ));
     }
 

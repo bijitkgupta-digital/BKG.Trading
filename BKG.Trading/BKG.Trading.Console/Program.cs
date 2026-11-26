@@ -54,6 +54,26 @@ internal class Program
             ?? throw new InvalidOperationException(
                 "Kite AccessToken configuration is missing.");
 
+        string buyOrderType =
+            configuration["Trading:DefaultBuyOrderType"]
+            ?? "Market";
+
+        decimal minimumFundAllotment =
+            configuration.GetValue<decimal?>("Trading:MinimumFundAllotment")
+            ?? 200_000m;
+
+        int maximumStockPoolSize =
+            configuration.GetValue<int?>("Trading:MaximumStockPoolSize")
+            ?? 10;
+
+        string marketOrderType =
+            configuration["Trading:MarketOrderType"]
+            ?? "Market";
+
+        string limitOrderType =
+            configuration["Trading:LimitOrderType"]
+            ?? "Limit";
+
         IBroker kiteBroker = await KiteConnectClient.CreateAsync(kiteApiKey, kiteAccessToken);
 
         return new ServiceCollection()
@@ -63,7 +83,15 @@ internal class Program
             .AddSingleton<IScreener>(_ => new TradingViewClient(new HttpClient()))
             .AddSingleton<IBroker>(kiteBroker)
             .AddTransient<ETFPurchaseService>()
-            .AddTransient<StockPurchaseService>()
+            .AddTransient<StockPurchaseService>(sp => new StockPurchaseService(
+                sp.GetRequiredService<IScreener>(),
+                sp.GetRequiredService<ILTPProvider>(),
+                sp.GetRequiredService<IBroker>(),
+                minimumFundAllotment,
+                maximumStockPoolSize,
+                marketOrderType,
+                limitOrderType,
+                buyOrderType))
             .BuildServiceProvider();
     }
 
