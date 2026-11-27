@@ -1,4 +1,6 @@
 ﻿using BKG.Trading.Domain.Contract;
+using BKG.Trading.Domain.Constants;
+using Microsoft.Extensions.Logging;
 using System.Net.Http.Json;
 using System.Text.Json;
 
@@ -18,25 +20,28 @@ internal sealed record TradingViewStock
 public sealed class TradingViewClient : IScreener
 {
     private readonly HttpClient _httpClient;
+    private readonly ILogger<TradingViewClient>? _logger;
 
-    public TradingViewClient(HttpClient httpClient)
+    public TradingViewClient(HttpClient httpClient, ILogger<TradingViewClient>? logger = null)
     {
         _httpClient = httpClient;
+        _logger = logger;
     }
 
     public async Task<IDictionary<string, decimal>> GetSwingStockListAsync()
     {
         var payload = BuildSwingStocksV2Payload();
 
-        var response = await _httpClient.PostAsJsonAsync("https://scanner.tradingview.com/india/scan", payload);
+        var response = await _httpClient.PostAsJsonAsync(TradingConstants.TradingView.ScannerEndpointUrl, payload);
 
         response.EnsureSuccessStatusCode();
 
         string json = await response.Content.ReadAsStringAsync();
 
-        // Parse symbols here
+        IDictionary<string, decimal> stocks = TopRankedStocks(json);
+        _logger?.LogInformation("TradingView screener completed. SelectedCount={SelectedCount}", stocks.Count);
 
-        return TopRankedStocks(json);
+        return stocks;
     }    
 
     private IDictionary<string, decimal> TopRankedStocks(string json)
@@ -107,13 +112,13 @@ public sealed class TradingViewClient : IScreener
                 decimal atrPct =
                     (x.Atr.Value / x.ClosePrice.Value) * 100m;
 
-                return atrPct >= 1.6m &&
-                       atrPct <= 3.8m;
+                return atrPct >= TradingConstants.TradingView.AtrPercentMinimum &&
+                       atrPct <= TradingConstants.TradingView.AtrPercentMaximum;
             })
             .Where(x =>
                 x.ChangePercent.HasValue &&
-                x.ChangePercent >= -3.5m &&
-                x.ChangePercent <= 1m)
+                x.ChangePercent >= TradingConstants.TradingView.ChangePercentMinimum &&
+                x.ChangePercent <= TradingConstants.TradingView.ChangePercentMaximum)
 
             .Where(x =>
             {
@@ -125,8 +130,8 @@ public sealed class TradingViewClient : IScreener
                     ((x.ClosePrice.Value - x.Sma200.Value)
                         / x.Sma200.Value) * 100m;
 
-                return priceAboveSma200Pct >= 3m &&
-                       priceAboveSma200Pct <= 20m;
+                return priceAboveSma200Pct >= TradingConstants.TradingView.PriceAboveSma200PercentMinimum &&
+                       priceAboveSma200Pct <= TradingConstants.TradingView.PriceAboveSma200PercentMaximum;
             });
 
         return filteredStocks.ToDictionary(
@@ -177,14 +182,14 @@ public sealed class TradingViewClient : IScreener
                 {
                     left = "exchange",
                     operation = "equal",
-                    right = "NSE"
+                    right = TradingConstants.TradingView.ExchangeNse
                 },
                 // Market Cap > 200B INR
                 new
                 {
                     left = "market_cap_basic",
                     operation = "greater",
-                    right = 200_000_000_000
+                    right = TradingConstants.TradingView.MarketCapMinimum
                 }
             }
         };

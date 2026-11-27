@@ -1,5 +1,6 @@
 ﻿using BKG.Trading.Domain.Contract;
 using FyersCSharpSDK;
+using Microsoft.Extensions.Logging;
 using Newtonsoft.Json.Linq;
 
 namespace BKG.Trading.Adapters;
@@ -11,23 +12,25 @@ public sealed class FyersClient : ILTPProvider
     private static readonly TimeSpan ApiDelay = TimeSpan.FromSeconds(1);
 
     private readonly HttpClient _httpClient;
+    private readonly ILogger<FyersClient>? _logger;
     private readonly string _appId;
     private readonly string _secretKey;
     private readonly string _redirectUri;
 
     private string _accessToken = string.Empty;
 
-    private FyersClient(HttpClient httpClient, string appId, string secretKey, string redirectUri)
+    private FyersClient(HttpClient httpClient, string appId, string secretKey, string redirectUri, ILogger<FyersClient>? logger)
     {
         _httpClient = httpClient;
+        _logger = logger;
         _appId = appId;
         _secretKey = secretKey;
         _redirectUri = redirectUri;
     }
 
-    public static async Task<FyersClient> CreateAsync(HttpClient httpClient, string appId, string secretKey, string redirectUri)
+    public static async Task<FyersClient> CreateAsync(HttpClient httpClient, string appId, string secretKey, string redirectUri, ILogger<FyersClient>? logger = null)
     {
-        var client = new FyersClient(httpClient, appId, secretKey, redirectUri);
+        var client = new FyersClient(httpClient, appId, secretKey, redirectUri, logger);
         await client.AuthenticateAsync();
         return client;
     }
@@ -58,7 +61,6 @@ public sealed class FyersClient : ILTPProvider
 
             foreach (var quote in quotes)
             {
-                Console.WriteLine(quote);
                 string symbol = NormalizeSymbol(quote.Symbol);
                 // TT appears to be the traded price in FYERS SDK
                 if (decimal.TryParse(quote.TT, out decimal ltp))
@@ -67,6 +69,8 @@ public sealed class FyersClient : ILTPProvider
                 }
             }
         }
+
+        _logger?.LogInformation("FYERS LTP fetch completed. SymbolCount={SymbolCount}", result.Count);
 
         return result;
     }
@@ -94,6 +98,8 @@ public sealed class FyersClient : ILTPProvider
 
         Console.WriteLine(
             $"Connected to FYERS account: {profile.Item1.Name}");
+
+        _logger?.LogInformation("FYERS authentication successful for profile {ProfileName}", profile.Item1.Name);
     }
 
     private async Task<string> GetAccessTokenAsync()

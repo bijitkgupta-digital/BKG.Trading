@@ -1,30 +1,53 @@
 ﻿using BKG.Trading.Adapters;
 using BKG.Trading.Applications.StockSwing;
+using BKG.Trading.Domain.Constants;
 using BKG.Trading.Domain.Contract;
+using BKG.Trading.Logging;
 using BKG.Trading.Repository.SQL;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 
 internal class Program
 {
     static async Task Main(string[] args)
     {
+        string logDirectoryPath = Path.Combine(AppContext.BaseDirectory, "Logs");
+
+        using ILoggerFactory loggerFactory = LoggerFactory.Create(logging =>
+        {
+            logging.ClearProviders();
+            logging.SetMinimumLevel(LogLevel.Information);
+            logging.AddSimpleConsole(options =>
+            {
+                options.SingleLine = true;
+                options.TimestampFormat = TradingConstants.Logging.ConsoleTimestampFormat;
+            });
+            logging.AddProvider(new TextFileLoggerProvider(logDirectoryPath, "SwingStockTrading"));
+        });
+
+        ILogger<Program> logger = loggerFactory.CreateLogger<Program>();
+
         Console.WriteLine("=================================================================");
         Console.WriteLine("     BKG.TRADING CORE QUANT SYSTEM ENGINE INITIALIZATION          ");
         Console.WriteLine("=================================================================");
 
+        logger.LogInformation("Trading engine initialization started.");
+
         try
         {
-            IServiceProvider serviceProvider = await BuildServiceProvider();
+            IServiceProvider serviceProvider = await BuildServiceProvider(loggerFactory);
 
             // Future Parallel Execution
             await Task.WhenAll(
                 //RunEtfAveragingAsync(serviceProvider),
                 RunStockSwingAsync(serviceProvider));
+
+            logger.LogInformation("Trading engine execution completed successfully.");
         }
         catch (Exception ex)
         {
+            logger.LogError(ex, "Critical system pipeline termination.");
             Console.ForegroundColor = ConsoleColor.Red;
             Console.WriteLine();
             Console.WriteLine($"❌ Critical System Pipeline Termination Exception: {ex.Message}");
@@ -32,7 +55,7 @@ internal class Program
         }
     }
 
-    private static async Task<IServiceProvider> BuildServiceProvider()
+    private static async Task<IServiceProvider> BuildServiceProvider(ILoggerFactory loggerFactory)
     {
         IConfiguration configuration = new ConfigurationBuilder()
             .SetBasePath(Directory.GetCurrentDirectory())
@@ -45,60 +68,56 @@ internal class Program
                 "Connection string 'TradingDatabase' not found.");
 
         string kiteApiKey =
-            configuration["KiteConfig:ApiKey"]
+            configuration[TradingConstants.ConfigKeys.KiteApiKey]
             ?? throw new InvalidOperationException(
                 "Kite ApiKey configuration is missing.");
 
         string kiteAccessToken =
-            configuration["KiteConfig:AccessToken"]
+            configuration[TradingConstants.ConfigKeys.KiteAccessToken]
             ?? throw new InvalidOperationException(
                 "Kite AccessToken configuration is missing.");
 
-        string buyOrderType =
-            configuration["Trading:DefaultBuyOrderType"]
-            ?? "Market";
-
         decimal minimumFundAllotment =
-            configuration.GetValue<decimal?>("Trading:MinimumFundAllotment")
-            ?? 200_000m;
+            configuration.GetValue<decimal?>(TradingConstants.ConfigKeys.MinimumFundAllotment)
+            ?? TradingConstants.Defaults.MinimumFundAllotment;
 
         int maximumStockPoolSize =
-            configuration.GetValue<int?>("Trading:MaximumStockPoolSize")
-            ?? 10;
+            configuration.GetValue<int?>(TradingConstants.ConfigKeys.MaximumStockPoolSize)
+            ?? TradingConstants.Defaults.MaximumStockPoolSize;
 
         string marketOrderType =
-            configuration["Trading:MarketOrderType"]
-            ?? "Market";
+            configuration[TradingConstants.ConfigKeys.MarketOrderType]
+            ?? TradingConstants.Defaults.MarketOrderType;
 
-        string limitOrderType =
-            configuration["Trading:LimitOrderType"]
-            ?? "Limit";
-
-        IBroker kiteBroker = await KiteConnectClient.CreateAsync(kiteApiKey, kiteAccessToken);
+        ILogger<KiteConnectClient> kiteLogger = loggerFactory.CreateLogger<KiteConnectClient>();
+        IBroker kiteBroker = await KiteConnectClient.CreateAsync(kiteApiKey, kiteAccessToken, kiteLogger);
 
         return new ServiceCollection()
+            .AddSingleton(loggerFactory)
+            .AddSingleton(typeof(ILogger<>), typeof(Logger<>))
             .AddHttpClient()
             .AddSingleton<ITradingRepository>(_ => new DapperTradingRepository(dbConnectionString))
-            .AddSingleton<ILTPProvider>(_ => new YahooClient(new HttpClient()))
-            .AddSingleton<IScreener>(_ => new TradingViewClient(new HttpClient()))
+            .AddSingleton<ILTPProvider>(sp => new YahooClient(new HttpClient(), sp.GetRequiredService<ILogger<YahooClient>>()))
+            .AddSingleton<IScreener>(sp => new TradingViewClient(new HttpClient(), sp.GetRequiredService<ILogger<TradingViewClient>>()))
             .AddSingleton<IBroker>(kiteBroker)
             .AddTransient<ETFPurchaseService>()
             .AddTransient<StockPurchaseService>(sp => new StockPurchaseService(
                 sp.GetRequiredService<IScreener>(),
                 sp.GetRequiredService<ILTPProvider>(),
                 sp.GetRequiredService<IBroker>(),
+                sp.GetRequiredService<ILogger<StockPurchaseService>>(),
                 minimumFundAllotment,
                 maximumStockPoolSize,
-                marketOrderType,
-                limitOrderType,
-                buyOrderType))
+                marketOrderType))
             .BuildServiceProvider();
     }
 
     private static async Task RunEtfAveragingAsync(IServiceProvider serviceProvider)
     {
+        ILogger<Program> logger = serviceProvider.GetRequiredService<ILogger<Program>>();
         Console.WriteLine();
         Console.WriteLine("Running ETF Averaging Strategy...");
+        logger.LogInformation("Starting ETF averaging strategy execution.");
 
         var purchaseService =
             serviceProvider.GetRequiredService<ETFPurchaseService>();
@@ -108,6 +127,7 @@ internal class Program
 
         if (!result.AnyPurchase)
         {
+            logger.LogInformation("ETF averaging finished with no purchases.");
             Console.ForegroundColor = ConsoleColor.Yellow;
             Console.WriteLine("No ETF purchases triggered today.");
             Console.ResetColor();
@@ -128,6 +148,8 @@ internal class Program
                 $"Units: {purchase.UnitsPurchased}");
         }
 
+        logger.LogInformation("ETF averaging finished with {PurchaseCount} purchases.", result.Purchases.Count);
+
         Console.ResetColor();
 
         await Task.CompletedTask;
@@ -135,8 +157,10 @@ internal class Program
 
     private static async Task RunStockSwingAsync(IServiceProvider serviceProvider)
     {
+        ILogger<Program> logger = serviceProvider.GetRequiredService<ILogger<Program>>();
         Console.WriteLine();
         Console.WriteLine("Running Stock Swing Strategy...");
+        logger.LogInformation("Starting stock swing strategy execution.");
 
         var purchaseService = serviceProvider.GetRequiredService<StockPurchaseService>();
 
@@ -144,6 +168,7 @@ internal class Program
 
         if (!result.AnyPurchase)
         {
+            logger.LogInformation("Stock swing finished with no purchases.");
             Console.ForegroundColor = ConsoleColor.Yellow;
             Console.WriteLine("No Stock purchases triggered today.");
             Console.ResetColor();
@@ -163,6 +188,8 @@ internal class Program
                 $"Price: {purchase.Ltp:N2} " +
                 $"Units: {purchase.UnitsPurchased}");
         }
+
+        logger.LogInformation("Stock swing finished with {PurchaseCount} purchases.", result.Purchases.Count);
 
         Console.ResetColor();
 

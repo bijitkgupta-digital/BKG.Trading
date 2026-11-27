@@ -1,5 +1,7 @@
 ﻿using BKG.Trading.Applications.Models;
+using BKG.Trading.Domain.Constants;
 using BKG.Trading.Domain.Contract;
+using Microsoft.Extensions.Logging;
 
 namespace BKG.Trading.Applications.StockSwing;
 
@@ -8,58 +10,41 @@ public sealed class StockPurchaseService
     private readonly IScreener _screener;
     private readonly ILTPProvider _ltpProvider;
     private readonly IBroker _broker;
-    private readonly string _buyOrderType;
+    private readonly ILogger<StockPurchaseService> _logger;
     private readonly decimal _minimumFundAllotment;
     private readonly int _maximumStockPoolSize;
     private readonly string _marketOrderType;
-    private readonly string _limitOrderType;
 
     public StockPurchaseService(
         IScreener screener,
         ILTPProvider ltpProvider,
         IBroker broker,
+        ILogger<StockPurchaseService> logger,
         decimal minimumFundAllotment,
         int maximumStockPoolSize,
-        string marketOrderType,
-        string limitOrderType,
-        string buyOrderType)
+        string marketOrderType)
     {
         _screener = screener;
         _ltpProvider = ltpProvider;
         _broker = broker;
+        _logger = logger;
 
-        _minimumFundAllotment = minimumFundAllotment > 0 ? minimumFundAllotment : 200_000m;
-        _maximumStockPoolSize = maximumStockPoolSize > 0 ? maximumStockPoolSize : 10;
-
-        _marketOrderType = string.IsNullOrWhiteSpace(marketOrderType)
-            ? "Market"
-            : marketOrderType.Trim();
-
-        _limitOrderType = string.IsNullOrWhiteSpace(limitOrderType)
-            ? "Limit"
-            : limitOrderType.Trim();
-
-        _buyOrderType = string.IsNullOrWhiteSpace(buyOrderType)
-            ? _marketOrderType
-            : buyOrderType.Trim();
+        _minimumFundAllotment = minimumFundAllotment > 0 ? minimumFundAllotment : TradingConstants.Defaults.MinimumFundAllotment;
+        _maximumStockPoolSize = maximumStockPoolSize > 0 ? maximumStockPoolSize : TradingConstants.Defaults.MaximumStockPoolSize;
+        _marketOrderType = string.IsNullOrWhiteSpace(marketOrderType) ? TradingConstants.Defaults.MarketOrderType : marketOrderType.Trim();
     }
+
     public async Task<StockPurchaseResult> ExecuteAsync()
     {
         var purchases = new List<StockPurchaseRecord>();
-
-        Console.WriteLine();
-        Console.WriteLine("========================================================");
-        Console.WriteLine("              STOCK SWING STRATEGY ENGINE");
-        Console.WriteLine("========================================================");
-
         decimal availableMargin = await _broker.GetAvailableMarginAsync();
-
-        Console.WriteLine($"Available Margin         : ₹{availableMargin:N2}");
-        Console.WriteLine($"Minimum Allocation/Stock : ₹{_minimumFundAllotment:N2}");
-        Console.WriteLine("========================================================");
-
         if (availableMargin < _minimumFundAllotment)
         {
+            _logger.LogWarning(
+                "Skipping stock swing due to insufficient margin. AvailableMargin={AvailableMargin}, MinimumRequired={MinimumRequired}",
+                availableMargin,
+                _minimumFundAllotment);
+
             Console.ForegroundColor = ConsoleColor.Yellow;
             Console.WriteLine();
             Console.WriteLine("Insufficient margin available.");
@@ -69,59 +54,16 @@ public sealed class StockPurchaseService
             return CreateResult(purchases);
         }
 
-        int maximumStocksToPurchase = Math.Min((int)(availableMargin / _minimumFundAllotment), _maximumStockPoolSize);
-
-        Console.WriteLine();
-        Console.WriteLine($"Maximum Stocks Allowed   : {maximumStocksToPurchase}");
-
-        IDictionary<string, decimal> filteredStockListForSwing = await _screener.GetSwingStockListAsync();
-
-        Console.WriteLine();
-        Console.WriteLine("========================================================");
-        Console.WriteLine("STEP 1 : TRADINGVIEW SCREENER OUTPUT");
-        Console.WriteLine("========================================================");
-        Console.WriteLine($"{"SYMBOL",-15} {"CHANGE %",10}");
-
-        foreach (var stock in filteredStockListForSwing.OrderBy(x => x.Value))
-        {
-            Console.WriteLine($"{stock.Key,-15} {stock.Value,10:N2}");
-        }
-
-        Console.WriteLine("--------------------------------------------------------");
-        Console.WriteLine($"Candidates Found : {filteredStockListForSwing.Count}");
-
         HashSet<string> existingHoldings = (await _broker.GetExistingHoldings()).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        int maximumStocksToPurchase = Math.Min((int)(availableMargin / _minimumFundAllotment), (_maximumStockPoolSize - existingHoldings.Count));
 
-        Console.WriteLine();
-        Console.WriteLine("========================================================");
-        Console.WriteLine("STEP 2 : EXISTING HOLDINGS");
-        Console.WriteLine("========================================================");
+        IEnumerable<string> selectedStocks = (await _screener.GetSwingStockListAsync())
+            .Where(x => !existingHoldings.Contains(x.Key)).OrderBy(x => x.Value).Take(maximumStocksToPurchase).Select(x => x.Key);
 
-        if (existingHoldings.Count == 0)
+        if (!selectedStocks.Any())
         {
-            Console.WriteLine("No existing holdings found.");
-        }
-        else
-        {
-            foreach (string holding in existingHoldings.OrderBy(x => x))
-            {
-                Console.WriteLine(holding);
-            }
-        }
+            _logger.LogWarning("No eligible stocks available after excluding existing holdings.");
 
-        Console.WriteLine("--------------------------------------------------------");
-        Console.WriteLine($"Holdings Count : {existingHoldings.Count}");
-
-        List<string> selectedStocks =
-            filteredStockListForSwing
-                .Where(x => !existingHoldings.Contains(x.Key))
-                .OrderBy(x => x.Value)
-                .Take(maximumStocksToPurchase)
-                .Select(x => x.Key)
-                .ToList();
-
-        if (selectedStocks.Count == 0)
-        {
             Console.ForegroundColor = ConsoleColor.Yellow;
             Console.WriteLine();
             Console.WriteLine("No eligible stocks available after holding exclusion.");
@@ -129,37 +71,30 @@ public sealed class StockPurchaseService
 
             return CreateResult(purchases);
         }
-        
+
+        decimal fundAllotmentPerStock = availableMargin / selectedStocks.Count();
         IDictionary<string, decimal> stockPrices = await _ltpProvider.FetchLTPAsync(selectedStocks);
 
-        decimal fundAllotmentPerStock = availableMargin / selectedStocks.Count;
 
-        IDictionary<string, int> stockUnits =
-            stockPrices
-                .Where(x => x.Value > 0)
-                .ToDictionary(
-                    x => x.Key,
-                    x => Math.Max(
-                        1,
-                        (int)(fundAllotmentPerStock / x.Value)));
+        IDictionary<string, int> stockUnits = stockPrices
+            .Where(x => x.Value > 0)
+            .ToDictionary(x => x.Key, x => Math.Max(1, (int)(fundAllotmentPerStock / x.Value)));
 
-        var orderPreview =
-            stockUnits
-                .OrderBy(x => x.Key)
-                .Select(x => new
-                {
-                    Symbol = x.Key,
-                    Ltp = stockPrices[x.Key],
-                    Units = x.Value,
-                    CapitalAllocation = stockPrices[x.Key] * x.Value
-                })
-                .ToList();
+        var orderPreview = stockUnits
+            .OrderBy(x => x.Key)
+            .Select(x => new
+            {
+                Symbol = x.Key,
+                Ltp = stockPrices[x.Key],
+                Units = x.Value,
+                CapitalAllocation = stockPrices[x.Key] * x.Value
+            });
 
         decimal totalCapitalAllocation = orderPreview.Sum(x => x.CapitalAllocation);
 
         Console.WriteLine();
         Console.WriteLine("========================================================");
-        Console.WriteLine("STEP 3 : ORDER PREVIEW");
+        Console.WriteLine("ORDER PREVIEW");
         Console.WriteLine("========================================================");
         Console.WriteLine($"{"SYMBOL",-15} {"LTP",12} {"UNITS",10} {"CAPITAL ALLOCATION",20}");
 
@@ -176,21 +111,17 @@ public sealed class StockPurchaseService
         Console.WriteLine($"Total Capital Allocation : ₹{totalCapitalAllocation:N2}");
         Console.WriteLine($"Total Available Capital  : ₹{availableMargin:N2}");
         Console.WriteLine("========================================================");
-        Console.WriteLine($"Press ENTER to place {_buyOrderType.ToUpperInvariant()} orders...");
+        Console.WriteLine($"Press ENTER to place {_marketOrderType.ToUpperInvariant()} orders...");
         Console.ReadLine();
+
+        _logger.LogInformation("Step=OrderSubmissionStarting OrderCount={OrderCount}", stockUnits.Count);
 
         foreach (var stock in stockUnits.Where(x => x.Value > 0))
         {
-            if (string.Equals(_buyOrderType, _limitOrderType, StringComparison.OrdinalIgnoreCase))
-            {
-                await _broker.PlaceLimitBuyOrderAsync(stock.Key, stock.Value, stockPrices[stock.Key]);
-            }
-            else
-            {
-                await _broker.PlaceMarketBuyOrderAsync(stock.Key, stock.Value);
-            }
-            
-            await Task.Delay(TimeSpan.FromSeconds(1));
+            _logger.LogInformation("Submitting market buy order. Symbol={Symbol}, Quantity={Quantity}", stock.Key, stock.Value);
+
+            await _broker.PlaceMarketBuyOrderAsync(stock.Key, stock.Value);
+            await Task.Delay(TradingConstants.Defaults.BuyOrderPlacementDelay);
 
             purchases.Add(new StockPurchaseRecord
             {
@@ -207,6 +138,8 @@ public sealed class StockPurchaseService
         Console.WriteLine("========================================================");
         Console.WriteLine($"Orders Placed : {purchases.Count}");
         Console.ResetColor();
+
+        _logger.LogInformation("Stock swing execution finished. OrdersPlaced={OrdersPlaced}", purchases.Count);
 
         return CreateResult(purchases);
     }

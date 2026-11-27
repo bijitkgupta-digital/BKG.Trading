@@ -1,4 +1,5 @@
 ﻿using BKG.Trading.Domain.Contract;
+using Microsoft.Extensions.Logging;
 using System.Text.Json;
 
 namespace BKG.Trading.Adapters
@@ -6,10 +7,12 @@ namespace BKG.Trading.Adapters
     public class YahooClient : ILTPProvider
     {
         private readonly HttpClient _httpClient;
+        private readonly ILogger<YahooClient>? _logger;
 
-        public YahooClient(HttpClient httpClient)
+        public YahooClient(HttpClient httpClient, ILogger<YahooClient>? logger = null)
         {
             _httpClient = httpClient;
+            _logger = logger;
         }
         public async Task<decimal> FetchLTPAsync(string symbol)
         {
@@ -42,6 +45,8 @@ namespace BKG.Trading.Adapters
             {
                 result[symbol] = await FetchLTPAsync(symbol);
             }
+
+            _logger?.LogInformation("Yahoo LTP fetch completed. SymbolCount={SymbolCount}", result.Count);
 
             return result;
         }
